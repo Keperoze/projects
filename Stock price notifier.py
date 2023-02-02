@@ -1,4 +1,7 @@
 from selenium import webdriver
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
 import time
 import yagmail
 
@@ -19,8 +22,9 @@ def clean_value(initial):
 
 def get_value():
     driver = get_driver()
-    time.sleep(3)
-    element = driver.find_element('xpath','//*[@id="app_indeks"]/section[1]/div/div/div[2]/span[2]')
+    wait = WebDriverWait(driver, 10)
+    element = wait.until(EC.visibility_of_element_located((By.XPATH, '//*[@id="app_indeks"]/section[1]/div/div/div[2]/span[2]')))
+    print(element)
     return clean_value(element.text)
 
 sender = 'sender@gmail.com'
