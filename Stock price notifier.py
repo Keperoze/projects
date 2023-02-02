@@ -24,7 +24,6 @@ def get_value():
     driver = get_driver()
     wait = WebDriverWait(driver, 10)
     element = wait.until(EC.visibility_of_element_located((By.XPATH, '//*[@id="app_indeks"]/section[1]/div/div/div[2]/span[2]')))
-    print(element)
     return clean_value(element.text)
 
 sender = 'sender@gmail.com'
