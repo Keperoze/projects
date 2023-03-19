@@ -9,6 +9,7 @@ class AllSprites(pygame.sprite.Group):
         self.display_surface = pygame.display.get_surface()
 
         self.offset = pygame.math.Vector2()
+        self.selection_rect = pygame.Rect((0, 0), (0, 0))
 
         self.ground_surf = pygame.image.load('data/bg.png').convert_alpha()
         self.ground_rect = self.ground_surf.get_rect(topleft=(0, 0))
@@ -40,13 +41,14 @@ class AllSprites(pygame.sprite.Group):
         if self.selecting:
             self.end_pos_x = pygame.mouse.get_pos()[0] + self.offset.x
             self.end_pos_y = pygame.mouse.get_pos()[1] + self.offset.y
-            selection_rect = pygame.Rect((min(self.start_pos_x, self.end_pos_x), min(self.start_pos_y, self.end_pos_y)),
+            self.selection_rect = pygame.Rect((min(self.start_pos_x, self.end_pos_x), min(self.start_pos_y, self.end_pos_y)),
                                          (abs(self.end_pos_x - self.start_pos_x), abs(self.end_pos_y - self.start_pos_y)))
-            self.image = pygame.Surface((selection_rect.width, selection_rect.height))
+            self.image = pygame.Surface((self.selection_rect.width, self.selection_rect.height))
             self.image.set_alpha(80)
-            self.display_surface.blit(self.image, selection_rect.topleft - self.offset)
+            self.display_surface.blit(self.image, self.selection_rect.topleft - self.offset)
         else:
             self.image = pygame.Surface((0, 0))
+
 
     def custom_draw(self, dt):
         self.keyboard_control(dt)
@@ -80,11 +82,11 @@ class Game():
 
         for obj in self.tmx_map.get_layer_by_name('Entities'):
             if obj.name == "Warrior1":
-                Warrior1((obj.x, obj.y), [self.all_sprites, self.units], PATHS['warrior1'])
+                Warrior1((obj.x, obj.y), [self.all_sprites, self.units], PATHS['warrior1'], self.all_sprites)
             if obj.name == "Warrior2":
-                Warrior2((obj.x, obj.y), [self.all_sprites, self.units], PATHS['warrior2'])
+                Warrior2((obj.x, obj.y), [self.all_sprites, self.units], PATHS['warrior2'], self.all_sprites)
             if obj.name == "Warrior3":
-                Warrior3((obj.x, obj.y), [self.all_sprites, self.units], PATHS['warrior3'])
+                Warrior3((obj.x, obj.y), [self.all_sprites, self.units], PATHS['warrior3'], self.all_sprites)
 
     def run(self):
         while True:
@@ -97,11 +99,11 @@ class Game():
 
             self.display_surface.fill('black')
 
-            self.all_sprites.update(dt)
-            self.all_sprites.custom_draw(dt)
 
-            # print(int(self.clock.get_fps()))
-            # print(len(self.all_sprites))
+            self.all_sprites.custom_draw(dt)
+            self.all_sprites.update(dt)
+
+            # debug(int(self.clock.get_fps()))
 
             pygame.display.update()
 
