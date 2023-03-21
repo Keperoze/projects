@@ -5,9 +5,9 @@ I am planning to create a strategy game, using only the resources that are avail
 2023.03.17 - implemented the selection box logic.  
 2023.03.18 - implemented hitpoint logic above unit sprites when selected.  
 2023.03.19 - implemented basic movement. Selected units move towards mouse when right-clicked.  
+2023.03.21 - implemented collision logic between units. Units don't bunch up in a single spot. Added multiple status animations to warrior sprites.  
 
 NEXT STEPS:
-- add animations based on status
-- add collision logic (and hitboxes)
 - figure out a way to move in formations (probably a .csv file with numbered spots based on number of selected units)
 - basic enemy behaviour
+- pathfinding
