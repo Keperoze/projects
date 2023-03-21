@@ -3,6 +3,8 @@ from pygame.math import Vector2 as vector
 from settings import *
 from pathlib import Path
 from debug import debug
+from random import randint
+from statistics import mean
 
 class Unit(pygame.sprite.Sprite):
     def __init__(self, pos, groups, path, selection):
@@ -12,6 +14,9 @@ class Unit(pygame.sprite.Sprite):
         self.frame_index = 0
         self.status = 'idle'
 
+        self.previous_pos = []
+        self.last_pos_time = 0
+
         self.image = self.animations[self.status][self.frame_index]
         self.rect = self.image.get_rect(center=pos)
 
@@ -19,11 +24,16 @@ class Unit(pygame.sprite.Sprite):
         self.direction = vector()
         self.speed = 200
 
-        self.hitbox = self.rect.inflate(-self.rect.width * 0.5, -self.rect.height / 2)
+        # self.hitbox = pygame.Rect(self.rect.centerx- self.rect.width // 4, self.rect.bottom - self.rect.height // 2,
+        #                           self.rect.width // 2, self.rect.height)
+        self.hitbox = self.rect.inflate(-self.rect.width * 0.5, -self.rect.height * 0.5)
         self.health = 100
         self.max_health = 200
         self.selected = False
         self.selection = selection
+        self.display_surf = pygame.display.get_surface()
+        self.moving = False
+        self.mouse_pos = self.pos
 
     def get_damage(self, amount):
         if self.health > 0:
@@ -33,13 +43,87 @@ class Unit(pygame.sprite.Sprite):
         if self.health < self.max_health:
             self.health += amount
 
+    def check_selection(self):
+        mouse = pygame.mouse.get_pressed()
+        if self.selection.selection_rect.colliderect(self.rect) or \
+                (mouse[0] and self.hitbox.collidepoint(vector(pygame.mouse.get_pos()) + self.selection.offset)):
+            self.selected = True
+        elif self.selected and not mouse[0]:
+            pass
+        else:
+            self.selected = False
+
     def basic_health(self):
         if self.selected:
             offset = self.selection.offset
-            pygame.draw.rect(self.display_surf, (255, 0, 0), (self.rect.left - offset.x, self.rect.top + 10 - offset.y,
-                                                              self.rect.width, 10))
-            pygame.draw.rect(self.display_surf, (0, 255, 0), (self.rect.left - offset.x, self.rect.top + 10 - offset.y,
-                                                              self.rect.width * (self.health / self.max_health), 10))
+            pygame.draw.rect(self.display_surf, (210, 43, 43), (self.hitbox.left - offset.x, self.hitbox.bottom - 50 - offset.y,
+                                                              self.hitbox.width, 8))
+            pygame.draw.rect(self.display_surf, (4,204,130), (self.hitbox.left - offset.x, self.hitbox.bottom - 50 - offset.y,
+                                                              self.hitbox.width * (self.health / self.max_health), 8))
+
+    def move(self, dt):
+        mouse = pygame.mouse.get_pressed()
+        if mouse[2] and self.selected:
+            self.moving = True
+            self.status = 'run'
+            self.mouse_pos = vector(pygame.mouse.get_pos()) + self.selection.offset
+        if self.moving and self.mouse_pos != self.pos:
+            distance = self.mouse_pos - self.pos
+            self.direction = distance.normalize()
+            movement = self.direction * self.speed * dt
+            self.pos.x += movement.x
+            self.hitbox.centerx = round(self.pos.x)
+            self.rect.centerx = self.hitbox.centerx
+            self.collision('horizontal')
+
+            self.pos.y += movement.y
+            self.hitbox.centery = round(self.pos.y)
+            self.rect.centery = self.hitbox.centery
+            self.collision('vertical')
+
+        if abs(self.mouse_pos.x - self.pos.x) < 0.5 and abs(self.mouse_pos.y - self.pos.y) < 0.5:
+            self.moving = False
+            self.status = 'idle'
+
+    def check_movement(self):
+        current_time = pygame.time.get_ticks()
+        if current_time - self.last_pos_time > 100:
+            self.previous_pos.append(self.rect.center)
+            self.last_pos_time = current_time
+            if len(self.previous_pos) >= 4:
+                self.previous_pos = self.previous_pos[1:]
+                if abs(mean(t[0] for t in self.previous_pos) - self.previous_pos[0][0]) + \
+                        abs(mean(t[1] for t in self.previous_pos) - self.previous_pos[0][1]) < 0.5:
+                    self.moving = False
+                    self.status = 'idle'
+                    self.previous_pos = []
+
+    def collision(self, direction):
+        for sprite in self.selection.sprites():
+            if sprite != self and sprite.hitbox.colliderect(self.hitbox):
+                if direction == 'horizontal':
+                    if self.direction.x > 0:  # moving to right
+                        self.hitbox.right = sprite.hitbox.left
+                    if self.direction.x < 0:
+                        self.hitbox.left = sprite.hitbox.right
+                    self.rect.centerx = self.hitbox.centerx
+                    self.pos.x = self.hitbox.centerx
+                else:
+                    if self.direction.y > 0:  # moving down
+                        self.hitbox.bottom = sprite.hitbox.top
+                    if self.direction.y < 0:
+                        self.hitbox.top = sprite.hitbox.bottom
+                    self.rect.centery = self.hitbox.centery
+                    self.pos.y = self.hitbox.centery
+
+    def animate(self, dt):
+        current_animation = self.animations[self.status]
+        self.frame_index += 8 * dt
+
+        if self.frame_index >= len(current_animation):
+            self.frame_index = 0
+
+        self.image = current_animation[int(self.frame_index)]
 
     def import_assets(self, path):
         root_dir = Path(path)
@@ -53,144 +137,43 @@ class Warrior1(Unit):
         super().__init__(pos, groups, path, selection)
         self.health = 100
         self.max_health = 200
-        self.display_surf = pygame.display.get_surface()
-        self.mouse_pos = self.pos
-
-        self.moving = False
-
-    def animate(self, dt):
-        current_animation = self.animations[self.status]
-        self.frame_index += 8 * dt
-
-        if self.frame_index >= len(current_animation):
-            self.frame_index = 0
-
-        self.image = current_animation[int(self.frame_index)]
-
-    def check_selection(self):
-        mouse = pygame.mouse.get_pressed()
-        if self.selection.selection_rect.colliderect(self.rect):
-            self.selected = True
-        elif self.selected and not mouse[0]:
-            pass
-        else:
-            self.selected = False
-
-    def move(self, dt):
-        mouse = pygame.mouse.get_pressed()
-        if mouse[2] and self.selected:
-            self.moving = True
-            self.mouse_pos = vector(pygame.mouse.get_pos()) + self.selection.offset
-        if self.moving and self.mouse_pos != self.pos:
-            distance = self.mouse_pos - self.pos
-            direction = distance.normalize()
-            movement = direction * self.speed * dt
-            self.pos += movement
-            self.rect.centerx = round(self.pos.x)
-            self.rect.centery = round(self.pos.y)
-        if abs(self.mouse_pos.x - self.pos.x) < 0.5 and abs(self.mouse_pos.y - self.pos.y) < 0.5:
-            self.moving = False
+        self.speed = 200
 
     def update(self, dt):
         self.animate(dt)
         self.check_selection()
         self.basic_health()
         self.move(dt)
+        if self.moving:
+            self.check_movement()
 
 class Warrior2(Unit):
     def __init__(self, pos, groups, path, selection):
         super().__init__(pos, groups, path, selection)
         self.health = 100
         self.max_health = 200
-        self.display_surf = pygame.display.get_surface()
-        self.mouse_pos = self.pos
+        self.speed = 150
 
-        self.moving = False
-
-    def animate(self, dt):
-        current_animation = self.animations[self.status]
-        self.frame_index += 8 * dt
-
-        if self.frame_index >= len(current_animation):
-            self.frame_index = 0
-
-        self.image = current_animation[int(self.frame_index)]
-
-    def check_selection(self):
-        mouse = pygame.mouse.get_pressed()
-        if self.selection.selection_rect.colliderect(self.rect):
-            self.selected = True
-        elif self.selected and not mouse[0]:
-            pass
-        else:
-            self.selected = False
-
-    def move(self, dt):
-        mouse = pygame.mouse.get_pressed()
-        if mouse[2] and self.selected:
-            self.moving = True
-            self.mouse_pos = vector(pygame.mouse.get_pos()) + self.selection.offset
-        if self.moving and self.mouse_pos != self.pos:
-            distance = self.mouse_pos - self.pos
-            direction = distance.normalize()
-            movement = direction * self.speed * dt
-            self.pos += movement
-            self.rect.centerx = round(self.pos.x)
-            self.rect.centery = round(self.pos.y)
-        if abs(self.mouse_pos.x - self.pos.x) < 0.5 and abs(self.mouse_pos.y - self.pos.y) < 0.5:
-            self.moving = False
 
     def update(self, dt):
         self.animate(dt)
         self.check_selection()
         self.basic_health()
         self.move(dt)
+        if self.moving:
+            self.check_movement()
 
 class Warrior3(Unit):
     def __init__(self, pos, groups, path, selection):
         super().__init__(pos, groups, path, selection)
         self.health = 100
         self.max_health = 200
-        self.display_surf = pygame.display.get_surface()
-        self.mouse_pos = self.pos
-
-        self.moving = False
-
-    def animate(self, dt):
-        current_animation = self.animations[self.status]
-        self.frame_index += 8 * dt
-
-        if self.frame_index >= len(current_animation):
-            self.frame_index = 0
-
-        self.image = current_animation[int(self.frame_index)]
-
-    def check_selection(self):
-        mouse = pygame.mouse.get_pressed()
-        if self.selection.selection_rect.colliderect(self.rect):
-            self.selected = True
-        elif self.selected and not mouse[0]:
-            pass
-        else:
-            self.selected = False
-
-    def move(self, dt):
-        mouse = pygame.mouse.get_pressed()
-        if mouse[2] and self.selected:
-            self.moving = True
-            self.mouse_pos = vector(pygame.mouse.get_pos()) + self.selection.offset
-        if self.moving and self.mouse_pos != self.pos:
-            distance = self.mouse_pos - self.pos
-            direction = distance.normalize()
-            movement = direction * self.speed * dt
-            self.pos += movement
-            self.rect.centerx = round(self.pos.x)
-            self.rect.centery = round(self.pos.y)
-        if abs(self.mouse_pos.x - self.pos.x) < 0.5 and abs(self.mouse_pos.y - self.pos.y) < 0.5:
-            self.moving = False
+        self.speed = 150
 
     def update(self, dt):
         self.animate(dt)
         self.check_selection()
         self.basic_health()
         self.move(dt)
+        if self.moving:
+            self.check_movement()
