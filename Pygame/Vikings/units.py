@@ -1,9 +1,7 @@
 import pygame
 from pygame.math import Vector2 as vector
-from settings import *
 from pathlib import Path
 from debug import debug
-from random import randint
 from statistics import mean
 
 class Unit(pygame.sprite.Sprite):
@@ -24,8 +22,6 @@ class Unit(pygame.sprite.Sprite):
         self.direction = vector()
         self.speed = 200
 
-        # self.hitbox = pygame.Rect(self.rect.centerx- self.rect.width // 4, self.rect.bottom - self.rect.height // 2,
-        #                           self.rect.width // 2, self.rect.height)
         self.hitbox = self.rect.inflate(-self.rect.width * 0.5, -self.rect.height * 0.5)
         self.health = 100
         self.max_health = 200
@@ -58,14 +54,17 @@ class Unit(pygame.sprite.Sprite):
             offset = self.selection.offset
             pygame.draw.rect(self.display_surf, (210, 43, 43), (self.hitbox.left - offset.x, self.hitbox.bottom - 50 - offset.y,
                                                               self.hitbox.width, 8))
-            pygame.draw.rect(self.display_surf, (4,204,130), (self.hitbox.left - offset.x, self.hitbox.bottom - 50 - offset.y,
+            pygame.draw.rect(self.display_surf, (4, 204, 130), (self.hitbox.left - offset.x, self.hitbox.bottom - 50 - offset.y,
                                                               self.hitbox.width * (self.health / self.max_health), 8))
 
     def move(self, dt):
         mouse = pygame.mouse.get_pressed()
         if mouse[2] and self.selected:
             self.moving = True
-            self.status = 'run'
+            if self.direction[0] > 0:
+                self.status = 'run'
+            else:
+                self.status = 'run_l'
             self.mouse_pos = vector(pygame.mouse.get_pos()) + self.selection.offset
         if self.moving and self.mouse_pos != self.pos:
             distance = self.mouse_pos - self.pos
@@ -83,7 +82,10 @@ class Unit(pygame.sprite.Sprite):
 
         if abs(self.mouse_pos.x - self.pos.x) < 0.5 and abs(self.mouse_pos.y - self.pos.y) < 0.5:
             self.moving = False
-            self.status = 'idle'
+            if self.direction[0] > 0:
+                self.status = 'idle'
+            else:
+                self.status = 'idle_l'
 
     def check_movement(self):
         current_time = pygame.time.get_ticks()
@@ -146,6 +148,7 @@ class Warrior1(Unit):
         self.move(dt)
         if self.moving:
             self.check_movement()
+        debug(self.direction)
 
 class Warrior2(Unit):
     def __init__(self, pos, groups, path, selection):
@@ -153,7 +156,6 @@ class Warrior2(Unit):
         self.health = 100
         self.max_health = 200
         self.speed = 150
-
 
     def update(self, dt):
         self.animate(dt)
